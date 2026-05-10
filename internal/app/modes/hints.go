@@ -22,6 +22,7 @@ type ModeActivationOptions struct {
 	CursorFollowSelection *bool
 	FilterRoles           []string
 	FilterTextContains    []string
+	Search                bool
 }
 
 const (
@@ -102,12 +103,14 @@ func (h *Handler) activateHintModeWithAction(
 	cursorFollowSelection *bool,
 	filterRoles []string,
 	filterTextContains []string,
+	search bool,
 ) {
 	h.activateHintModeInternal(
 		action,
 		cursorFollowSelection,
 		filterRoles,
 		filterTextContains,
+		search,
 	)
 
 	// Store repeat flag after activation so the context is already initialized.
@@ -125,6 +128,7 @@ func (h *Handler) activateHintModeInternal(
 	cursorFollowSelection *bool,
 	filterRoles []string,
 	filterTextContains []string,
+	search bool,
 ) {
 	// Detect refresh before validation so we can clean up on failure
 	isRefresh := h.appState.CurrentMode() == domain.ModeHints
@@ -204,6 +208,7 @@ func (h *Handler) activateHintModeInternal(
 		))
 		h.hints.Context.SetFilterRoles(filterRoles)
 		h.hints.Context.SetFilterTextContains(filterTextContains)
+		h.hints.Context.SetStartWithSearch(search)
 	}
 
 	// Use new HintService to show hints
@@ -309,6 +314,13 @@ func (h *Handler) activateHintModeInternal(
 	}
 
 	h.logger.Info("Hints mode activated")
+
+	if search {
+		err := h.startHintSearchLocked()
+		if err != nil {
+			h.logger.Error("Failed to start hint search on activation", zap.Error(err))
+		}
+	}
 
 	h.startIndicatorPolling(domain.ModeHints)
 }
