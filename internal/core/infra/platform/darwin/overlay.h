@@ -16,6 +16,11 @@
 /// Overlay window handle
 typedef void *OverlayWindow;
 
+/// Hint placement constants (must match HintPlacement enum in overlay_darwin.m)
+#define HINT_PLACEMENT_TOP 1
+#define HINT_PLACEMENT_CENTER 2
+#define HINT_PLACEMENT_BOTTOM 3
+
 /// Hint style configuration
 typedef struct {
 	int fontSize;                   ///< Font size
@@ -29,6 +34,7 @@ typedef struct {
 	int paddingX;                   ///< Horizontal padding (-1 = auto)
 	int paddingY;                   ///< Vertical padding (-1 = auto)
 	int showArrow;                  ///< Show arrow (0 = no arrow, 1 = show arrow)
+	int placement;                  ///< Label placement relative to target
 	int boundaryHighlightEnabled;   ///< Draw target boundary highlight (0 = off, 1 = on)
 	int boundaryBorderWidth;        ///< Target boundary border width
 	int boundaryBorderRadius;       ///< Target boundary corner radius
