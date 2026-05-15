@@ -84,7 +84,11 @@ func (m *MockAXClient) ApplicationByBundleID(_ string) (AXApp, error) {
 }
 
 // ClickableNodes returns the configured clickable nodes or error.
-func (m *MockAXClient) ClickableNodes(_ AXElement, _ bool, roles []string) ([]AXNode, error) {
+func (m *MockAXClient) ClickableNodes(
+	_ AXElement,
+	_ bool,
+	roles []string,
+) ([]AXNode, error) {
 	m.mu.Lock()
 	m.LastClickableNodesRoles = roles
 	m.ClickableNodesRolesHistory = append(m.ClickableNodesRolesHistory, roles)

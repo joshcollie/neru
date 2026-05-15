@@ -663,6 +663,7 @@ func (n *TreeNode) FindClickableElements(
 			ignoreClickableCheck,
 		) {
 			node.info.searchText = node.collectSearchText()
+
 			result = append(result, node)
 		}
 
