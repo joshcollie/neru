@@ -154,17 +154,8 @@ static bool detectMissionControlActive(void) {
 			return false;
 		}
 
-		// Store all screen sizes for proper multi-monitor detection.
-		// This ensures we detect Mission Control windows on screens of any size.
-		NSMutableArray *screenSizes = [NSMutableArray arrayWithCapacity:screens.count];
-		for (NSScreen *screen in screens) {
-			NSValue *sizeValue = [NSValue valueWithSize:screen.frame.size];
-			[screenSizes addObject:sizeValue];
-		}
-
 		CFIndex count = CFArrayGetCount(windowList);
-		int fullscreenDockWindows = 0;
-		int highLayerDockWindows = 0;
+		int anyHighLayerDockWindows = 0;
 		BOOL missionControlAppVisible = NO;
 
 		for (CFIndex i = 0; i < count; i++) {
@@ -180,51 +171,16 @@ static bool detectMissionControlActive(void) {
 			}
 
 			if (ownerName && CFStringCompare(ownerName, CFSTR("Dock"), 0) == kCFCompareEqualTo) {
-				CFStringRef windowName = (CFStringRef)CFDictionaryGetValue(windowInfo, kCGWindowName);
-				CFDictionaryRef bounds = (CFDictionaryRef)CFDictionaryGetValue(windowInfo, kCGWindowBounds);
 				CFNumberRef windowLayer = (CFNumberRef)CFDictionaryGetValue(windowInfo, kCGWindowLayer);
 
-				if (bounds) {
-					double x = 0, y = 0, w = 0, h = 0;
-					CFNumberRef xValue = (CFNumberRef)CFDictionaryGetValue(bounds, CFSTR("X"));
-					CFNumberRef yValue = (CFNumberRef)CFDictionaryGetValue(bounds, CFSTR("Y"));
-					CFNumberRef wValue = (CFNumberRef)CFDictionaryGetValue(bounds, CFSTR("Width"));
-					CFNumberRef hValue = (CFNumberRef)CFDictionaryGetValue(bounds, CFSTR("Height"));
+				int layer = 0;
+				if (windowLayer) {
+					CFNumberGetValue(windowLayer, kCFNumberIntType, &layer);
+				}
 
-					if (xValue)
-						CFNumberGetValue(xValue, kCFNumberDoubleType, &x);
-					if (yValue)
-						CFNumberGetValue(yValue, kCFNumberDoubleType, &y);
-					if (wValue)
-						CFNumberGetValue(wValue, kCFNumberDoubleType, &w);
-					if (hValue)
-						CFNumberGetValue(hValue, kCFNumberDoubleType, &h);
-
-					// Check if window is fullscreen on ANY connected monitor.
-					// This is crucial for multi-monitor setups with different resolutions.
-					bool isFullscreen = false;
-					for (NSValue *sizeValue in screenSizes) {
-						CGSize screenSize = sizeValue.sizeValue;
-						// Allow 5% tolerance for window size variations
-						if (w >= screenSize.width * 0.95 && h >= screenSize.height * 0.95) {
-							isFullscreen = true;
-							break;
-						}
-					}
-
-					// Window must have no name (Mission Control Dock windows are unnamed)
-					bool hasNoName = (!windowName || CFStringGetLength(windowName) == 0);
-					int layer = 0;
-					if (windowLayer) {
-						CFNumberGetValue(windowLayer, kCFNumberIntType, &layer);
-					}
-
-					if (isFullscreen && hasNoName && windowLayer) {
-						fullscreenDockWindows++;
-						if (layer >= 18 && layer <= 20) {
-							highLayerDockWindows++;
-						}
-					}
+				// Count any Dock window at layers 18-20 (only exist during Mission Control)
+				if (layer >= 18 && layer <= 20) {
+					anyHighLayerDockWindows++;
 				}
 			}
 		}
@@ -233,15 +189,14 @@ static bool detectMissionControlActive(void) {
 
 		// Detection logic:
 		// 1. If Mission Control app window is visible, definitely MC
-		// 2. Otherwise, check for multiple fullscreen Dock windows:
-		//    - Mission Control with single space: 2 windows (layers 18 and 20)
-		//    - Mission Control with multiple spaces: 3+ windows
+		// 2. If any Dock windows exist at layers 18-20, definitely MC
+		//    (these layers only appear during MC)
 		int minRequired = 2;
 		BOOL result = NO;
 
 		if (missionControlAppVisible) {
 			result = YES;
-		} else if (fullscreenDockWindows >= minRequired && highLayerDockWindows >= minRequired) {
+		} else if (anyHighLayerDockWindows >= minRequired) {
 			result = YES;
 		}
 

@@ -13,6 +13,7 @@ func MenuBarClickableElements(
 	cache *InfoCache,
 	configProvider config.Provider,
 	strictFiltering bool,
+	bypassCache bool,
 ) ([]*TreeNode, error) {
 	logger.Debug("Getting clickable elements for menu bar")
 
@@ -33,7 +34,12 @@ func MenuBarClickableElements(
 	defer menubar.Release()
 
 	opts := DefaultTreeOptions(logger)
-	opts.SetCache(cache)
+	if bypassCache {
+		opts.SetCache(NewInfoCache(logger))
+	} else {
+		opts.SetCache(cache)
+	}
+
 	opts.SetStrictFiltering(strictFiltering)
 	opts.SetIncludeOutOfBounds(!strictFiltering)
 
@@ -73,6 +79,10 @@ func MenuBarClickableElements(
 		ignoreClickableCheck = cfg.ShouldIgnoreClickableCheckForApp(focusedBundleID)
 	}
 
+	if bypassCache {
+		cache = nil
+	}
+
 	elements := tree.FindClickableElements(
 		allowedRoles,
 		cache,
@@ -97,6 +107,7 @@ func ClickableElementsFromBundleID(
 	cache *InfoCache,
 	configProvider config.Provider,
 	strictFiltering bool,
+	bypassCache bool,
 ) ([]*TreeNode, error) {
 	logger.Debug("Getting clickable elements for bundle ID",
 		zap.String("bundle_id", bundleID),
@@ -111,7 +122,12 @@ func ClickableElementsFromBundleID(
 	defer app.Release()
 
 	opts := DefaultTreeOptions(logger)
-	opts.SetCache(cache)
+	if bypassCache {
+		opts.SetCache(NewInfoCache(logger))
+	} else {
+		opts.SetCache(cache)
+	}
+
 	opts.SetStrictFiltering(strictFiltering)
 	opts.SetIncludeOutOfBounds(!strictFiltering)
 
@@ -146,6 +162,10 @@ func ClickableElementsFromBundleID(
 	ignoreClickableCheck := false
 	if cfg := currentConfig(configProvider); cfg != nil {
 		ignoreClickableCheck = cfg.ShouldIgnoreClickableCheckForApp(bundleID)
+	}
+
+	if bypassCache {
+		cache = nil
 	}
 
 	elements := tree.FindClickableElements(
