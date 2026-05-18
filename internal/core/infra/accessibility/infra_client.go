@@ -3,7 +3,6 @@ package accessibility
 import (
 	"fmt"
 	"image"
-	"strings"
 
 	"go.uber.org/zap"
 
@@ -87,8 +86,6 @@ func (c *InfraAXClient) FocusedApplication() (AXApp, error) {
 func (c *InfraAXClient) ClickableNodes(
 	root AXElement,
 	roles []string,
-	strictFiltering bool,
-	includeOutOfBounds bool,
 ) ([]AXNode, error) {
 	var element *Element
 
@@ -106,16 +103,7 @@ func (c *InfraAXClient) ClickableNodes(
 	}
 
 	opts := DefaultTreeOptions(c.logger)
-	opts.SetStrictFiltering(strictFiltering)
-	opts.SetIncludeOutOfBounds(includeOutOfBounds)
-
-	// Enable strict filtering for Chromium/Electron apps which have noisy DOM trees
-	bundleID := element.BundleIdentifier()
-	if isLikelyChromiumOrElectron(bundleID) ||
-		isUserConfiguredChromiumElectron(bundleID, c.configProvider) {
-		opts.SetStrictFiltering(true)
-		opts.SetIncludeOutOfBounds(false) // strict filtering requires bound checks to be active
-	}
+	opts.SetConfigProvider(c.configProvider)
 
 	if cfg := currentConfig(c.configProvider); cfg != nil {
 		opts.SetMaxDepth(cfg.Hints.MaxDepth)
@@ -141,7 +129,7 @@ func (c *InfraAXClient) ClickableNodes(
 
 	ignoreClickableCheck := false
 	if cfg := currentConfig(c.configProvider); cfg != nil {
-		ignoreClickableCheck = cfg.ShouldIgnoreClickableCheckForApp(bundleID)
+		ignoreClickableCheck = cfg.ShouldIgnoreClickableCheckForApp(element.BundleIdentifier())
 	}
 
 	clickableNodes := tree.FindClickableElements(
@@ -178,15 +166,10 @@ func (c *InfraAXClient) ApplicationByBundleID(bundleID string) (AXApp, error) {
 }
 
 // MenuBarClickableElements returns clickable elements in the menu bar.
-func (c *InfraAXClient) MenuBarClickableElements(
-	strictFiltering bool,
-	includeOutOfBounds bool,
-) ([]AXNode, error) {
+func (c *InfraAXClient) MenuBarClickableElements() ([]AXNode, error) {
 	nodes, nodesErr := MenuBarClickableElements(
 		c.logger,
 		c.configProvider,
-		strictFiltering,
-		includeOutOfBounds,
 	)
 	if nodesErr != nil {
 		return nil, derrors.Wrap(
@@ -212,16 +195,12 @@ func (c *InfraAXClient) MenuBarClickableElements(
 func (c *InfraAXClient) ClickableElementsFromBundleID(
 	bundleID string,
 	roles []string,
-	strictFiltering bool,
-	includeOutOfBounds bool,
 ) ([]AXNode, error) {
 	nodes, nodesErr := ClickableElementsFromBundleID(
 		bundleID,
 		roles,
 		c.logger,
 		c.configProvider,
-		strictFiltering,
-		includeOutOfBounds,
 	)
 	if nodesErr != nil {
 		return nil, derrors.Wrap(
@@ -497,51 +476,4 @@ func (n *InfraNode) Release() {
 	if n.node != nil && n.node.Element() != nil {
 		n.node.Element().Release()
 	}
-}
-
-// isLikelyChromiumOrElectron returns true if the bundle ID matches known Chromium/Electron apps.
-// This is duplicated from electron package to avoid import cycle.
-func isLikelyChromiumOrElectron(bundleID string) bool {
-	if bundleID == "" {
-		return false
-	}
-
-	bundleID = strings.TrimSpace(bundleID)
-
-	for _, b := range config.KnownChromiumBundles {
-		if strings.EqualFold(b, bundleID) {
-			return true
-		}
-	}
-
-	for _, b := range config.KnownElectronBundles {
-		if strings.EqualFold(b, bundleID) {
-			return true
-		}
-	}
-
-	return false
-}
-
-// isUserConfiguredChromiumElectron checks if the bundle ID matches user-configured
-// additional Chromium/Electron bundles from config. Supports exact matches and
-// wildcard patterns (ending with *).
-func isUserConfiguredChromiumElectron(bundleID string, configProvider config.Provider) bool {
-	if bundleID == "" || configProvider == nil {
-		return false
-	}
-
-	cfg := configProvider.Get()
-	if cfg == nil {
-		return false
-	}
-
-	chromiumBundles := cfg.Hints.AdditionalAXSupport.AdditionalChromiumBundles
-	if config.MatchesAdditionalBundle(bundleID, chromiumBundles) {
-		return true
-	}
-
-	electronBundles := cfg.Hints.AdditionalAXSupport.AdditionalElectronBundles
-
-	return config.MatchesAdditionalBundle(bundleID, electronBundles)
 }
