@@ -58,6 +58,7 @@ include_stage_manager_hints = false
 include_pip_hints = false
 include_screen_capture_hints = false
 detect_mission_control = false
+streaming_enabled = false
 clickable_roles = [
     "AXButton",
 	"AXMenuButton",

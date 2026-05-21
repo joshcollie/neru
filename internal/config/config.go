@@ -577,6 +577,7 @@ type HintsConfig struct {
 	IncludePIPHints               bool     `json:"includePipHints"               toml:"include_pip_hints"`
 	IncludeScreenCaptureHints     bool     `json:"includeScreenCaptureHints"     toml:"include_screen_capture_hints"`
 	DetectMissionControl          bool     `json:"detectMissionControl"          toml:"detect_mission_control"`
+	StreamingEnabled              bool     `json:"streamingEnabled"              toml:"streaming_enabled"`
 
 	ClickableRoles       []string `json:"clickableRoles"       toml:"clickable_roles"`
 	IgnoreClickableCheck bool     `json:"ignoreClickableCheck" toml:"ignore_clickable_check"`

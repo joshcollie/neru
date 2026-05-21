@@ -113,11 +113,33 @@ func (s *HintService) StreamHints(
 		return nil, ctx.Err()
 	}
 
-	streamCh, err := s.accessibility.StreamElements(ctx, filter)
-	if err != nil {
-		s.logger.Error("Failed to start streaming elements", zap.Error(err))
+	var (
+		streamCh  <-chan ports.ElementStreamResult
+		streamErr error
+	)
 
-		return nil, core.WrapAccessibilityFailed(err, "stream elements")
+	if cfg.StreamingEnabled {
+		streamCh, streamErr = s.accessibility.StreamElements(ctx, filter)
+	} else {
+		var elements []*element.Element
+
+		elements, streamErr = s.accessibility.ClickableElements(ctx, filter)
+		if streamErr == nil {
+			resultCh := make(chan ports.ElementStreamResult, len(elements))
+			for _, e := range elements {
+				resultCh <- ports.ElementStreamResult{Element: e}
+			}
+
+			close(resultCh)
+
+			streamCh = resultCh
+		}
+	}
+
+	if streamErr != nil {
+		s.logger.Error("Failed to start element stream", zap.Error(streamErr))
+
+		return nil, core.WrapAccessibilityFailed(streamErr, "element stream")
 	}
 
 	outCh := make(chan HintStreamBatch, 4) //nolint:mnd // small buffer for streaming batches
