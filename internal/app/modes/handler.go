@@ -92,6 +92,7 @@ type Handler struct {
 	executeHotkeyAction        func(key, actionStr string) error
 	refreshHintsTimer          *time.Timer
 	modeSession                uint64
+	streamCancel               context.CancelFunc
 	hotkeyLastKey              string
 	hotkeyLastKeyTime          int64
 

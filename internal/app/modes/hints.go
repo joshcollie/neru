@@ -242,9 +242,11 @@ func (h *Handler) activateHintModeInternal(
 	h.overlayManager.ResizeToActiveScreen()
 	h.overlayManager.Show()
 
+	// Cancel any previous hint stream before starting a new one
+	h.cancelHintStream()
+
 	// Try streaming hint generation first; fall back to batch on error
 	streamed := h.tryActivateHintsStreaming(
-		context.Background(),
 		filterRoles,
 		filterTextContains,
 		bundleID,
@@ -311,13 +313,15 @@ func (h *Handler) initHintManager() {
 // Returns true if streaming was started successfully, false to signal
 // the caller should fall back to the synchronous batch path.
 func (h *Handler) tryActivateHintsStreaming(
-	ctx context.Context,
 	filterRoles []string,
 	filterTextContains []string,
 	bundleID string,
 	screenBounds image.Rectangle,
 	search bool,
 ) bool {
+	ctx, cancel := context.WithCancel(context.Background())
+	h.streamCancel = cancel
+
 	streamCh, err := h.hintService.StreamHints(
 		ctx,
 		filterRoles,
@@ -327,6 +331,10 @@ func (h *Handler) tryActivateHintsStreaming(
 		nil,
 	)
 	if err != nil {
+		h.streamCancel = nil
+
+		cancel()
+
 		h.logger.Warn("Streaming hints not available, falling back to batch",
 			zap.Error(err))
 
@@ -336,6 +344,15 @@ func (h *Handler) tryActivateHintsStreaming(
 	go h.processHintStream(streamCh, search)
 
 	return true
+}
+
+// cancelHintStream cancels any in-flight hint streaming context and resets
+// the stored cancel func. Safe to call multiple times.
+func (h *Handler) cancelHintStream() {
+	if h.streamCancel != nil {
+		h.streamCancel()
+		h.streamCancel = nil
+	}
 }
 
 // activateHintsBatch is the synchronous fallback path — collects all elements
