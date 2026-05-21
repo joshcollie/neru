@@ -154,14 +154,15 @@ func (n *TreeNode) AddChild(child *TreeNode) {
 
 // TreeOptions configures accessibility tree traversal behavior and filtering.
 type TreeOptions struct {
-	filterFunc           func(*ElementInfo) bool
-	maxDepth             int
-	logger               *zap.Logger
-	stats                *treeStats
-	bundleID             string          // Bundle ID for auto-detecting Chromium/Electron strict filtering
-	configProvider       config.Provider // For checking user-configured Chromium/Electron bundles
-	isChromiumOrElectron bool            // Pre-computed flag for fast check
-	onNode               func(*TreeNode) // Optional callback invoked for each valid node during tree building; called after the TreeNode is created, before recursing into its children
+	filterFunc               func(*ElementInfo) bool
+	maxDepth                 int
+	logger                   *zap.Logger
+	stats                    *treeStats
+	bundleID                 string          // Bundle ID for auto-detecting Chromium/Electron strict filtering
+	configProvider           config.Provider // For checking user-configured Chromium/Electron bundles
+	isChromiumOrElectron     bool            // Pre-computed flag for fast check
+	onNode                   func(*TreeNode) // Optional callback invoked for each valid node during tree building; called after the TreeNode is created, before recursing into its children
+	skipAccumulateSearchText bool            // When true, skip the post-build accumulateSearchText walk (used by streaming path which computes search text eagerly)
 }
 
 // FilterFunc returns the filter function.
@@ -202,6 +203,13 @@ func (o *TreeOptions) SetFilterFunc(fn func(*ElementInfo) bool) {
 // SetMaxDepth sets the max depth for tree traversal.
 func (o *TreeOptions) SetMaxDepth(depth int) {
 	o.maxDepth = depth
+}
+
+// SetSkipAccumulateSearchText sets whether to skip the post-build
+// accumulateSearchText walk. Used by the streaming path which computes
+// search text eagerly to avoid a data race with the channel consumer.
+func (o *TreeOptions) SetSkipAccumulateSearchText(skip bool) {
+	o.skipAccumulateSearchText = skip
 }
 
 // DefaultTreeOptions returns default tree traversal options.
@@ -286,7 +294,10 @@ func BuildTree(root *Element, opts TreeOptions) (*TreeNode, error) {
 
 	opts.stats = stats
 	buildTreeRecursive(node, 1, opts, windowBounds, windowBounds)
-	accumulateSearchText(node)
+
+	if !opts.skipAccumulateSearchText {
+		accumulateSearchText(node)
+	}
 
 	if ce := opts.Logger().Check(zap.DebugLevel, "Tree build completed"); ce != nil {
 		ce.Write(

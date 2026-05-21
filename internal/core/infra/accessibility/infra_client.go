@@ -331,6 +331,7 @@ func (c *InfraAXClient) streamClickableNodesGoroutine(
 	defer element.Release()
 
 	opts, allowedRoles, ignoreClickableCheck := c.buildClickableOpts(element, roles, maxDepth)
+	opts.SetSkipAccumulateSearchText(true)
 
 	var keepMu sync.Mutex
 
