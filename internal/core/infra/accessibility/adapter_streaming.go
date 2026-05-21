@@ -250,6 +250,7 @@ func (a *Adapter) streamWindowNodes(
 		elem, convErr := a.convertToDomainElement(node)
 
 		node.Release()
+
 		if convErr != nil {
 			continue
 		}

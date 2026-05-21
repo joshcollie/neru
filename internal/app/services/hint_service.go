@@ -422,13 +422,13 @@ func (s *HintService) streamHintsInternal(
 				lastBatchCount = len(allElements)
 
 				hints := make([]*hint.Interface, len(allElements))
-				for i, elem := range allElements {
-					h, err := hint.NewHint(indexToLabel(i), elem, elem.Center())
+				for index, elem := range allElements {
+					h, err := hint.NewHint(indexToLabel(index), elem, elem.Center())
 					if err != nil {
 						continue
 					}
 
-					hints[i] = h
+					hints[index] = h
 				}
 
 				trySend(HintStreamBatch{Hints: hints, Done: false})
@@ -509,17 +509,18 @@ func (s *HintService) buildElementFilter(
 // using base-26 encoding (a-z). 0→"a", 1→"b", …, 25→"z", 26→"aa", 27→"ab".
 // This is O(1) per element and avoids the O(N log N) sort of gen.Generate.
 func indexToLabel(i int) string {
-	n := i + 1
+	num := i + 1
 
 	var rev [16]byte
-	p := len(rev)
 
-	for n > 0 {
-		n--
-		p--
-		rev[p] = 'a' + byte(n%26)
-		n /= 26
+	pos := len(rev)
+
+	for num > 0 {
+		num--
+		pos--
+		rev[pos] = 'a' + byte(num%26) //nolint:mnd
+		num /= 26
 	}
 
-	return string(rev[p:])
+	return string(rev[pos:])
 }
