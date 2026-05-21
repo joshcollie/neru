@@ -350,10 +350,17 @@ func (s *HintService) streamHintsInternal(
 		lastBatchCount int
 	)
 
+	trySend := func(batch HintStreamBatch) {
+		select {
+		case outCh <- batch:
+		case <-ctx.Done():
+		}
+	}
+
 	sendBatch := func(done bool) {
 		if len(allElements) == 0 {
 			if done {
-				outCh <- HintStreamBatch{Done: true}
+				trySend(HintStreamBatch{Done: true})
 			}
 
 			return
@@ -371,15 +378,15 @@ func (s *HintService) streamHintsInternal(
 		if err != nil {
 			s.logger.Error("Failed to generate interim hints", zap.Error(err))
 
-			outCh <- HintStreamBatch{Err: err, Done: done}
+			trySend(HintStreamBatch{Err: err, Done: done})
 
 			return
 		}
 
-		outCh <- HintStreamBatch{
+		trySend(HintStreamBatch{
 			Hints: hints,
 			Done:  done,
-		}
+		})
 	}
 
 	for {
@@ -400,7 +407,7 @@ func (s *HintService) streamHintsInternal(
 			if result.Err != nil {
 				s.logger.Error("Stream element error", zap.Error(result.Err))
 
-				outCh <- HintStreamBatch{Err: result.Err}
+				trySend(HintStreamBatch{Err: result.Err})
 
 				continue
 			}
