@@ -334,8 +334,9 @@ func (s *HintService) UpdateGenerator(_ context.Context, generator hint.Generato
 }
 
 // streamHintsInternal reads from the element stream, accumulates elements,
-// and periodically generates hint batches. It sends a final batch with
-// Done=true when the element stream is exhausted.
+// and sends interim hint batches as elements arrive. The final batch
+// (Done=true) uses proper position-sorted labels via gen.Generate. Interim
+// batches use index-based labels (no sort) so hint generation stays O(N).
 func (s *HintService) streamHintsInternal(
 	ctx context.Context,
 	streamCh <-chan ports.ElementStreamResult,
@@ -366,7 +367,6 @@ func (s *HintService) streamHintsInternal(
 			return
 		}
 
-		// Trim to max hints if necessary
 		elements := allElements
 
 		maxHints := gen.MaxHints()
@@ -374,11 +374,11 @@ func (s *HintService) streamHintsInternal(
 			elements = elements[:maxHints]
 		}
 
-		hints, err := gen.Generate(ctx, elements)
-		if err != nil {
-			s.logger.Error("Failed to generate interim hints", zap.Error(err))
+		hints, hintsErr := gen.Generate(ctx, elements)
+		if hintsErr != nil {
+			s.logger.Error("Failed to generate final hints", zap.Error(hintsErr))
 
-			trySend(HintStreamBatch{Err: err, Done: done})
+			trySend(HintStreamBatch{Err: hintsErr, Done: done})
 
 			return
 		}
@@ -416,21 +416,22 @@ func (s *HintService) streamHintsInternal(
 				allElements = append(allElements, result.Element)
 			}
 
-			// Emit interim batch every batchInterval new elements
+			// Emit interim batch every batchInterval elements.
+			// Uses index-based labels (no sort) to avoid O(N²) regeneration.
 			if len(allElements)-lastBatchCount >= batchInterval {
 				lastBatchCount = len(allElements)
-				genCopy := gen
-				elementsCopy := make([]*element.Element, len(allElements))
-				copy(elementsCopy, allElements)
 
-				hints, err := genCopy.Generate(ctx, elementsCopy)
-				if err != nil {
-					s.logger.Error("Failed to generate interim hints", zap.Error(err))
+				hints := make([]*hint.Interface, len(allElements))
+				for i, elem := range allElements {
+					h, err := hint.NewHint(indexToLabel(i), elem, elem.Center())
+					if err != nil {
+						continue
+					}
 
-					continue
+					hints[i] = h
 				}
 
-				outCh <- HintStreamBatch{Hints: hints, Done: false}
+				trySend(HintStreamBatch{Hints: hints, Done: false})
 			}
 		}
 	}
@@ -502,4 +503,23 @@ func (s *HintService) buildElementFilter(
 	}
 
 	return filter
+}
+
+// indexToLabel converts a zero-based element index to a unique letter label
+// using base-26 encoding (a-z). 0→"a", 1→"b", …, 25→"z", 26→"aa", 27→"ab".
+// This is O(1) per element and avoids the O(N log N) sort of gen.Generate.
+func indexToLabel(i int) string {
+	n := i + 1
+
+	var rev [16]byte
+	p := len(rev)
+
+	for n > 0 {
+		n--
+		p--
+		rev[p] = 'a' + byte(n%26)
+		n /= 26
+	}
+
+	return string(rev[p:])
 }
