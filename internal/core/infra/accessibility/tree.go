@@ -26,6 +26,12 @@ import (
 // Pre-allocated common errors.
 var errRootElementNil = derrors.New(derrors.CodeAccessibilityFailed, "root element is nil")
 
+// buildTreeMu serializes all BuildTree invocations to prevent concurrent
+// macOS Accessibility API calls. The AX API is not thread-safe — multiple
+// goroutines calling getChildren/getElementInfo/hasClickAction simultaneously
+// triggers SIGTRAP during cgo execution.
+var buildTreeMu sync.Mutex
+
 // rectFromInfo converts an ElementInfo's position and size into an image.Rectangle.
 func rectFromInfo(info *ElementInfo) image.Rectangle {
 	pos := info.Position()
@@ -252,6 +258,9 @@ func (s *treeStats) recordDepth(depth int) {
 
 // BuildTree constructs an accessibility tree starting from the specified root element.
 func BuildTree(root *Element, opts TreeOptions) (*TreeNode, error) {
+	buildTreeMu.Lock()
+	defer buildTreeMu.Unlock()
+
 	if root == nil {
 		if ce := opts.Logger().
 			Check(zap.DebugLevel, "BuildTree called with nil root element"); ce != nil {
