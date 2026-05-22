@@ -15,6 +15,11 @@ import (
 	"github.com/y3owk1n/neru/internal/ui/overlay"
 )
 
+// debugElapsed logs the duration since start with the given message.
+func debugElapsed(logger *zap.Logger, start time.Time, msg string, fields ...zap.Field) {
+	logger.Debug(msg, append(fields, zap.Duration("elapsed", time.Since(start)))...)
+}
+
 // ModeActivationOptions configures a mode activation request.
 type ModeActivationOptions struct {
 	Action                *string
@@ -230,6 +235,8 @@ func (h *Handler) activateHintModeInternal(
 	ctx, cancel := context.WithTimeout(context.Background(), HintTimeout)
 	defer cancel()
 
+	activationStart := time.Now()
+
 	domainHints, domainHintsErr := h.hintService.GenerateHints(
 		ctx,
 		filterRoles,
@@ -250,7 +257,14 @@ func (h *Handler) activateHintModeInternal(
 		return
 	}
 
+	debugElapsed(h.logger, activationStart, "GenerateHints completed",
+		zap.Int("total_hints", len(domainHints)))
+
 	filteredHints := filterHintsForScreen(domainHints, activeScreenBounds)
+
+	debugElapsed(h.logger, activationStart, "FilterHintsForScreen completed",
+		zap.Int("after_filter", len(filteredHints)),
+		zap.Int("before_filter", len(domainHints)))
 
 	h.logger.Debug("Filtered hints by screen",
 		zap.Int("total_hints", len(domainHints)),
@@ -326,15 +340,22 @@ func (h *Handler) activateHintModeInternal(
 
 	h.hints.Context.SetRouter(domainHint.NewRouter(h.hints.Context.Manager(), h.logger))
 
+	debugElapsed(h.logger, activationStart, "Manager.SetHints completed")
+
 	h.hints.Context.SetHints(hintCollection)
 	h.overlayManager.ResizeToActiveScreen()
 	h.overlayManager.Show()
 
 	if actionStr != nil {
-		h.logger.Info("Hints mode activated with pending action", zap.String("action", *actionStr))
+		h.logger.Info("Hints mode activated",
+			zap.String("action", *actionStr),
+			zap.Duration("elapsed", time.Since(activationStart)),
+		)
+	} else {
+		h.logger.Info("Hints mode activated",
+			zap.Duration("elapsed", time.Since(activationStart)),
+		)
 	}
-
-	h.logger.Info("Hints mode activated")
 
 	if search {
 		err := h.startHintSearchLocked()
