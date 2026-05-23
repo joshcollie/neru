@@ -19,7 +19,7 @@ import (
 // activateRecursiveGridModeWithAction activates recursive-grid mode with optional action parameter.
 func (h *Handler) activateRecursiveGridModeWithAction(
 	actionStr *string,
-	repeat bool,
+	repeat *bool,
 	cursorFollowSelection *bool,
 ) {
 	// Detect refresh before validation so we can do partial cleanup on re-activation.
@@ -74,10 +74,15 @@ func (h *Handler) activateRecursiveGridModeWithAction(
 	// Initialize recursive-grid manager
 	h.initializeRecursiveGridManager(normalizedBounds)
 
-	cursorShouldFollow := resolveCursorFollowSelection(
-		domain.ModeRecursiveGrid,
-		cursorFollowSelection,
-	)
+	var cursorShouldFollow bool
+	if isRefresh && cursorFollowSelection == nil && h.recursiveGrid.Context != nil {
+		cursorShouldFollow = h.recursiveGrid.Context.CursorFollowSelection()
+	} else {
+		cursorShouldFollow = resolveCursorFollowSelection(
+			domain.ModeRecursiveGrid,
+			cursorFollowSelection,
+		)
+	}
 
 	// Move cursor to center of initial grid
 	if h.recursiveGrid.Manager != nil {
@@ -99,9 +104,23 @@ func (h *Handler) activateRecursiveGridModeWithAction(
 	// Draw initial recursive-grid
 	// Store pending action and repeat flag if provided
 	if h.recursiveGrid.Context != nil {
-		h.recursiveGrid.Context.SetPendingAction(actionStr)
-		h.recursiveGrid.Context.SetRepeat(repeat)
-		h.recursiveGrid.Context.SetCursorFollowSelection(cursorShouldFollow)
+		if isRefresh {
+			if actionStr != nil {
+				h.recursiveGrid.Context.SetPendingAction(actionStr)
+			}
+
+			if repeat != nil {
+				h.recursiveGrid.Context.SetRepeat(*repeat)
+			}
+
+			if cursorFollowSelection != nil {
+				h.recursiveGrid.Context.SetCursorFollowSelection(*cursorFollowSelection)
+			}
+		} else {
+			h.recursiveGrid.Context.SetPendingAction(actionStr)
+			h.recursiveGrid.Context.SetRepeat(repeat != nil && *repeat)
+			h.recursiveGrid.Context.SetCursorFollowSelection(cursorShouldFollow)
+		}
 	}
 
 	// Draw initial recursive-grid
@@ -114,7 +133,7 @@ func (h *Handler) activateRecursiveGridModeWithAction(
 		h.logger.Info(
 			"Recursive-grid mode activated with pending action",
 			zap.String("action", *actionStr),
-			zap.Bool("repeat", repeat),
+			zap.Bool("repeat", repeat != nil && *repeat),
 		)
 	}
 
@@ -216,7 +235,7 @@ func (h *Handler) handleRecursiveGridKey(key string) {
 			func() {
 				h.activateRecursiveGridModeWithAction(
 					pendingAction,
-					repeat,
+					&repeat,
 					&cursorFollowSelection,
 				)
 			},

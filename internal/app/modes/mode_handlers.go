@@ -136,7 +136,7 @@ func (h *Handler) handleHintsModeKey(key string) {
 					&cursorFollowSelection,
 					filterRoles,
 					filterTextContains,
-					startWithSearch,
+					&startWithSearch,
 				)
 				// Restore repeat and action on the fresh context so subsequent
 				// selections continue the repeat cycle.
@@ -387,7 +387,7 @@ func (h *Handler) handleGridModeKey(key string) {
 			pendingAction,
 			repeat, // Re-activate grid mode when --repeat is set
 			func() {
-				h.activateGridModeWithAction(pendingAction, repeat, &cursorFollowSelection)
+				h.activateGridModeWithAction(pendingAction, &repeat, &cursorFollowSelection)
 			},
 		)
 	} else if targetPoint := gridKeyResult.TargetPoint(); !targetPoint.Eq(image.Point{}) {

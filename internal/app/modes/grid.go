@@ -18,7 +18,7 @@ import (
 // activateGridModeWithAction activates grid mode with optional action parameter.
 func (h *Handler) activateGridModeWithAction(
 	actionStr *string,
-	repeat bool,
+	repeat *bool,
 	cursorFollowSelection *bool,
 ) {
 	// Detect refresh before validation so we can do partial cleanup on re-activation.
@@ -89,19 +89,34 @@ func (h *Handler) activateGridModeWithAction(
 	h.overlayManager.Show()
 
 	// Store pending action and repeat flag if provided
-	h.grid.Context.SetPendingAction(actionStr)
-	h.grid.Context.SetRepeat(repeat)
-	h.grid.Context.SetCursorFollowSelection(resolveCursorFollowSelection(
-		domain.ModeGrid,
-		cursorFollowSelection,
-	))
+	if isRefresh {
+		if actionStr != nil {
+			h.grid.Context.SetPendingAction(actionStr)
+		}
+
+		if repeat != nil {
+			h.grid.Context.SetRepeat(*repeat)
+		}
+
+		if cursorFollowSelection != nil {
+			h.grid.Context.SetCursorFollowSelection(*cursorFollowSelection)
+		}
+	} else {
+		h.grid.Context.SetPendingAction(actionStr)
+		h.grid.Context.SetRepeat(repeat != nil && *repeat)
+		h.grid.Context.SetCursorFollowSelection(resolveCursorFollowSelection(
+			domain.ModeGrid,
+			cursorFollowSelection,
+		))
+	}
+
 	h.grid.Context.ClearSelectionPoint()
 	h.refreshGridVirtualPointerLocked()
 
 	if actionStr != nil {
 		h.logger.Info("Grid mode activated with pending action",
 			zap.String("action", *actionStr),
-			zap.Bool("repeat", repeat))
+			zap.Bool("repeat", repeat != nil && *repeat))
 	}
 
 	// Only set mode and enable event tap on initial activation;
