@@ -611,12 +611,6 @@ func buildChildrenSequential(
 
 	// Second pass: create nodes and recurse
 	for _, data := range validChildren {
-		// Skip hit-test for elements within the original window bounds
-		// (not in a scroll area). These elements are guaranteed visible
-		// by the AX tree — only scroll areas can have off-screen children.
-		// Must be set before getTreeNode to avoid relying on pointer aliasing.
-		data.info.skipHitTest = clipBounds == windowBounds
-
 		childNode := getTreeNode(data.element, data.info, parent, 0)
 
 		parent.children = append(parent.children, childNode)
@@ -649,16 +643,13 @@ func buildChildrenSequential(
 
 // minElementSize is the minimum size threshold for elements.
 // Elements smaller than this are filtered out as noise (especially in Chromium DOM trees).
-// This matches similar filtering in tools like Glyphlow.
 const minElementSize = 15
 
 // shouldIncludeElement combines all filtering logic into one function.
 //
 // The clip-bounds overlap check is always applied so that ALL tree sources —
 // including supplementary ones (dock, menubar, PIP, etc.) — benefit from
-// spatial filtering against their respective clip bounds. Supplementary sources
-// historically passed includeOutOfBounds=true to bypass this check, which let
-// in off-screen elements from those sources.
+// spatial filtering against their respective clip bounds.
 func shouldIncludeElement(
 	info *ElementInfo,
 	opts TreeOptions,
