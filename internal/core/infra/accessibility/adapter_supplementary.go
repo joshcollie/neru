@@ -49,7 +49,7 @@ func (a *Adapter) addMenubarElements(
 			node.Release()
 
 			if elementErr != nil {
-				a.logger.Debug("Failed to convert menubar element", zap.Error(elementErr))
+				a.logger.Warn("Failed to convert menubar element", zap.Error(elementErr))
 
 				continue
 			}
@@ -146,7 +146,7 @@ func (a *Adapter) addDockElements(
 	// Get dock application by bundle ID
 	dockApp, dockAppErr := a.client.ApplicationByBundleID(ctx, dockBundleID)
 	if dockAppErr != nil || dockApp == nil {
-		a.logger.Debug("Dock application not found")
+		a.logger.Warn("Dock application not found")
 
 		return elements
 	}
@@ -251,7 +251,7 @@ func (a *Adapter) addStageManagerElements(
 	// Get window manager application by bundle ID
 	wmApp, wmAppErr := a.client.ApplicationByBundleID(ctx, wmBundleID)
 	if wmAppErr != nil || wmApp == nil {
-		a.logger.Debug("Window manager application not found")
+		a.logger.Warn("Window manager application not found")
 
 		return elements
 	}
