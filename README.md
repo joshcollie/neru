@@ -123,6 +123,8 @@ All hotkeys are remappable to suit your custom keyboard layouts (Colemak, Dvorak
 | `Shift+L` (in mode) | Execute Left Click             |
 | `Shift+R` (in mode) | Execute Right Click            |
 
+If you come from vimium or homerow or anything similar and expecting fill label with auto click (neru supports it, but need some configuration, see [tips and tricks](https://github.com/y3owk1n/neru/blob/main/docs/TIPS_TRICKS.md)). Out of the box, you'll need to use keybinding for mouse action like `Shift+L` for left click. Why not auto clicking it? The rationale behind this decision is because of multiple modes that we supports plus supporting on different mouse actions other than only clicking.
+
 > Read the [Configuration Reference](docs/CONFIGURATION.md#hotkeys) to customize bindings.
 
 ---
