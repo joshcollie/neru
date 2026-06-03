@@ -5,7 +5,6 @@
 //  Copyright © 2025 Neru. All rights reserved.
 //
 
-#import "accessibility.h"
 #import "overlay.h"
 
 #import <Cocoa/Cocoa.h>
@@ -222,8 +221,6 @@ typedef NS_ENUM(NSInteger, HintPlacement) {
 /// Cached parsed colors keyed by normalized hex string
 @property(nonatomic, strong) NSCache *colorCache;
 
-- (void)clearContent;
-
 /// When YES, drawLayer:inContext: clears the full bounds and redraws everything.
 /// When NO, only the dirty region (clip box) is cleared and items intersecting it are redrawn.
 /// Defaults to YES; set to NO by match-prefix-only updates that use setNeedsDisplayInRect:.
@@ -371,22 +368,6 @@ typedef NS_ENUM(NSInteger, HintPlacement) {
 - (void)dealloc {
 	[self.gridTransitionTimer invalidate];
 	self.gridTransitionTimer = nil;
-}
-
-- (void)clearContent {
-	[self cancelGridTransition];
-	[self cancelCursorIndicatorTransition];
-	[self.hints removeAllObjects];
-	[self.gridCells removeAllObjects];
-	self.searchInput = nil;
-	self.cursorIndicatorVisible = NO;
-	[self.colorCache removeAllObjects];
-	[[self.cachedHintAttributedString mutableString] setString:@""];
-	[[self.cachedHintMeasureString mutableString] setString:@""];
-	[[self.cachedSearchInputAttributedString mutableString] setString:@""];
-	[[self.cachedGridCellAttributedString mutableString] setString:@""];
-	[[self.cachedGridSubKeyAttributedString mutableString] setString:@""];
-	[self setNeedsDisplay:YES];
 }
 
 /// Return the backing scale factor for the current screen, with fallbacks.
@@ -1732,12 +1713,13 @@ typedef NS_ENUM(NSInteger, HintPlacement) {
 
 /// Create window
 - (void)createWindow {
-	NSRect initialRect = NSMakeRect(0, 0, 1, 1);
+	NSScreen *mainScreen = [NSScreen mainScreen];
+	NSRect screenFrame = [mainScreen frame];
 
 	// Use NSPanel for better floating overlay behavior.
 	// Non-activating panel won't steal focus from other apps.
 	NSPanel *panel =
-	    [[NSPanel alloc] initWithContentRect:initialRect
+	    [[NSPanel alloc] initWithContentRect:screenFrame
 	                               styleMask:NSWindowStyleMaskBorderless | NSWindowStyleMaskNonactivatingPanel
 	                                 backing:NSBackingStoreBuffered
 	                                   defer:NO];
@@ -1771,7 +1753,7 @@ typedef NS_ENUM(NSInteger, HintPlacement) {
 	[self.window setSharingType:self.sharingType];
 
 	// Create and attach overlay view
-	NSRect viewFrame = NSMakeRect(0, 0, 1, 1);
+	NSRect viewFrame = NSMakeRect(0, 0, screenFrame.size.width, screenFrame.size.height);
 	self.overlayView = [[OverlayView alloc] initWithFrame:viewFrame];
 	[self.window setContentView:self.overlayView];
 }
@@ -1827,17 +1809,11 @@ void NeruShowOverlayWindow(OverlayWindow window) {
 			                                         NSWindowCollectionBehaviorIgnoresCycle |
 			                                         NSWindowCollectionBehaviorFullScreenAuxiliary];
 
-			NSRect frame = controller.window.frame;
-			// Only display/order front if the window frame is larger than 1x1.
-			// This prevents a brief 1x1 pixel flash at the top-left screen origin
-			// when reactivating shrunken overlays.
-			if (frame.size.width > 1.0 || frame.size.height > 1.0) {
-				[controller.window setIsVisible:YES];
-				[controller.window orderFrontRegardless];
-				[controller.window display];
+			[controller.window setIsVisible:YES];
+			[controller.window orderFrontRegardless];
+			[controller.window display];
 
-				[controller.overlayView setNeedsDisplay:YES];
-			}
+			[controller.overlayView setNeedsDisplay:YES];
 		}
 	});
 }
@@ -1853,18 +1829,11 @@ void NeruHideOverlayWindow(OverlayWindow window) {
 	if ([NSThread isMainThread]) {
 		controller.shouldBeVisible = NO;
 		[controller.window orderOut:nil];
-		// Shrink to 1x1 to release the large backing store (saves ~47MB per
-		// Retina-resolution full-screen window). The next resize/show call
-		// will restore the proper frame before the window becomes visible.
-		[controller.window setFrame:NSMakeRect(0, 0, 1, 1) display:NO];
-		[controller.overlayView setFrame:NSMakeRect(0, 0, 1, 1)];
 	} else {
 		dispatch_async(dispatch_get_main_queue(), ^{
 			@autoreleasepool {
 				controller.shouldBeVisible = NO;
 				[controller.window orderOut:nil];
-				[controller.window setFrame:NSMakeRect(0, 0, 1, 1) display:NO];
-				[controller.overlayView setFrame:NSMakeRect(0, 0, 1, 1)];
 			}
 		});
 	}
@@ -1879,11 +1848,35 @@ void NeruClearOverlay(OverlayWindow window) {
 	OverlayWindowController *controller = (__bridge OverlayWindowController *)window;
 
 	if ([NSThread isMainThread]) {
-		[controller.overlayView clearContent];
+		[controller.overlayView cancelGridTransition];
+		[controller.overlayView cancelCursorIndicatorTransition];
+		[controller.overlayView.hints removeAllObjects];
+		[controller.overlayView.gridCells removeAllObjects];
+		controller.overlayView.searchInput = nil;
+		controller.overlayView.cursorIndicatorVisible = NO;
+		[controller.overlayView.colorCache removeAllObjects];
+		[[controller.overlayView.cachedHintAttributedString mutableString] setString:@""];
+		[[controller.overlayView.cachedHintMeasureString mutableString] setString:@""];
+		[[controller.overlayView.cachedSearchInputAttributedString mutableString] setString:@""];
+		[[controller.overlayView.cachedGridCellAttributedString mutableString] setString:@""];
+		[[controller.overlayView.cachedGridSubKeyAttributedString mutableString] setString:@""];
+		[controller.overlayView setNeedsDisplay:YES];
 	} else {
 		dispatch_async(dispatch_get_main_queue(), ^{
 			@autoreleasepool {
-				[controller.overlayView clearContent];
+				[controller.overlayView cancelGridTransition];
+				[controller.overlayView cancelCursorIndicatorTransition];
+				[controller.overlayView.hints removeAllObjects];
+				[controller.overlayView.gridCells removeAllObjects];
+				controller.overlayView.searchInput = nil;
+				controller.overlayView.cursorIndicatorVisible = NO;
+				[controller.overlayView.colorCache removeAllObjects];
+				[[controller.overlayView.cachedHintAttributedString mutableString] setString:@""];
+				[[controller.overlayView.cachedHintMeasureString mutableString] setString:@""];
+				[[controller.overlayView.cachedSearchInputAttributedString mutableString] setString:@""];
+				[[controller.overlayView.cachedGridCellAttributedString mutableString] setString:@""];
+				[[controller.overlayView.cachedGridSubKeyAttributedString mutableString] setString:@""];
+				[controller.overlayView setNeedsDisplay:YES];
 			}
 		});
 	}
@@ -3223,40 +3216,6 @@ static NSPoint NeruAppKitPointFromQuartzPoint(CGPoint point) {
 
 	NSRect mainFrame = [NSScreen mainScreen].frame;
 	return NSMakePoint(point.x, NSMaxY(mainFrame) - point.y);
-}
-
-/// Position and resize overlay window to a specific rect centered on a point.
-/// Converts absolute Quartz coordinates directly to AppKit (bottom-left origin) for correct multi-monitor placement.
-/// Used by small indicator overlays (mode indicator, sticky modifiers) to avoid full-screen backing stores.
-/// @param window Overlay window handle
-/// @param absoluteX Absolute Quartz X position
-/// @param absoluteY Absolute Quartz Y position
-/// @param width Window width in points
-/// @param height Window height in points
-void NeruPositionOverlayRelative(
-    OverlayWindow window, double absoluteX, double absoluteY, double width, double height) {
-	if (!window)
-		return;
-
-	OverlayWindowController *controller = (__bridge OverlayWindowController *)window;
-
-	dispatch_async(dispatch_get_main_queue(), ^{
-		@autoreleasepool {
-			NSPoint appKitCenter = NeruAppKitPointFromQuartzPoint(CGPointMake(absoluteX, absoluteY));
-			NSRect frame = NSMakeRect(appKitCenter.x - width / 2.0, appKitCenter.y - height / 2.0, width, height);
-
-			[controller.window setFrame:frame display:NO];
-			NSRect viewFrame = NSMakeRect(0, 0, width, height);
-			[controller.overlayView setFrame:viewFrame];
-
-			if (controller.shouldBeVisible) {
-				[controller.window setIsVisible:YES];
-				[controller.window orderFrontRegardless];
-				[controller.window display];
-				[controller.overlayView setNeedsDisplay:YES];
-			}
-		}
-	});
 }
 
 /// Show a transient mouse action indicator in its own overlay window.
