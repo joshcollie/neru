@@ -16,6 +16,7 @@
 - [Give Browser Content Time To Load Before Refreshing Hints](#give-browser-content-time-to-load-before-refreshing-hints)
 - [Checking the Accessibility Tree on macOS](#checking-the-accessibility-tree-on-macos)
 - [Running a Custom Configuration via App Bundle](#running-a-custom-configuration-via-app-bundle)
+- [Edit Config File Directly](#edit-config-file-directly)
 - [Triggering Neru Actions from External Tools](#triggering-neru-actions-from-external-tools)
 - [Combining Hints with Other Actions](#combining-hints-with-other-actions)
 - [Further Reading](#further-reading)
@@ -235,6 +236,16 @@ open -a neru --args launch -c /absolute/path/to/your/config
 > `~` expansion does not work here — use the full absolute path.
 
 This is useful for testing a config before committing it to your dotfiles, or for keeping separate profiles (e.g. a lighter config when presenting or screen-sharing).
+
+## Edit Config File Directly
+
+Quickly open your config in an editor without hunting for the file path:
+
+```bash
+neru status 2>&1 | grep Config | awk '{print $2}' | xargs nvim
+```
+
+You can wrap this in a shell alias or bind it to a key in your window manager / hotkey daemon.
 
 ## Triggering Neru Actions from External Tools
 
