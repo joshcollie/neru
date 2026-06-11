@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"go.uber.org/zap"
@@ -20,6 +21,13 @@ import (
 
 // healthNotInitialized is the status string for components that were not initialized.
 const healthNotInitialized = "not initialized"
+
+// detailSuffix marks informational sibling keys in capabilitiesMap (e.g.
+// "dark_mode_detection_detail"). Any key ending in this suffix carries
+// free-form prose for the `neru doctor` metadata header and is deliberately
+// excluded from the component health-row loop, which only understands the
+// supported/stub/headless/ok vocabulary.
+const detailSuffix = "_detail"
 
 // IPCControllerInfo handles info and config-related IPC commands.
 type IPCControllerInfo struct {
@@ -253,6 +261,12 @@ func (h *IPCControllerInfo) handleHealth(ctx context.Context, _ ipc.Command) ipc
 	}
 
 	for key, value := range capabilities {
+		// Skip informational sibling fields (e.g. dark_mode_detection_detail);
+		// see detailSuffix for the contract.
+		if strings.HasSuffix(key, detailSuffix) {
+			continue
+		}
+
 		status, _ := value.(string)
 
 		components["capability."+key] = status
@@ -351,7 +365,7 @@ func capabilitiesMap(capabilities ports.PlatformCapabilities) map[string]any {
 		return map[string]any{}
 	}
 
-	return map[string]any{
+	out := map[string]any{
 		"platform":            capabilities.Platform,
 		"process":             capabilityString(capabilities.Process),
 		"screen":              capabilityString(capabilities.Screen),
@@ -364,6 +378,18 @@ func capabilitiesMap(capabilities ports.PlatformCapabilities) map[string]any {
 		"app_watcher":         capabilityString(capabilities.AppWatcher),
 		"dark_mode_detection": capabilityString(capabilities.DarkModeDetection),
 	}
+
+	// Surface dark-mode Detail as a sibling field so `neru doctor` can render
+	// the current live state (e.g. "current state: dark (source=xdg-portal)")
+	// without having to expand FeatureCapability into its own structured map.
+	// Only Linux probes a live state into Detail; Darwin/Windows leave a static
+	// description there, so gate on platform to keep it out of their output.
+	if detail := capabilities.DarkModeDetection.Detail; detail != "" &&
+		strings.HasPrefix(capabilities.Platform, "linux") {
+		out["dark_mode_detection"+detailSuffix] = detail
+	}
+
+	return out
 }
 
 func profileMap(profile platform.Profile) map[string]any {
