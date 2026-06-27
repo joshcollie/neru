@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	minFontSize   = 14
+	minFontSize   = 1
 	hexDigitCount = 2
 	invalidColor  = 0xFFFFFFFF
 	colorLen3     = 3
