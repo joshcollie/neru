@@ -56,7 +56,6 @@ func (h *Handler) performModeSpecificCleanup() {
 func (h *Handler) clearAndHideOverlay() {
 	h.stopIndicatorPolling()
 
-	h.overlayManager.Clear()
 	h.overlayManager.Hide()
 }
 
@@ -96,7 +95,7 @@ func (h *Handler) cleanupGridMode() {
 	h.grid.Context.SetRepeat(false)
 
 	if h.grid.Manager != nil {
-		h.grid.Manager.Reset()
+		h.grid.Manager.ResetSilent()
 	}
 
 	// Explicitly hide the virtual pointer before clearing the overlay.
