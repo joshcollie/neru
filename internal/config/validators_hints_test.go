@@ -199,3 +199,43 @@ func TestLabelDirectionForApp(t *testing.T) {
 		t.Errorf("LabelDirectionForApp(empty global) = %q, want %q", got, dirNormal)
 	}
 }
+
+func TestValidateHints_FontSizeFloor(t *testing.T) {
+	// The floor was lowered from 6 to 1 for both hints.ui.font_size and
+	// hints.search_input_ui.font_size, so 1 must now validate.
+	cfg := config.DefaultConfig()
+	cfg.Hints.UI.FontSize = 1
+	cfg.Hints.SearchInputUI.FontSize = 1
+
+	err := cfg.ValidateHints()
+	if err != nil {
+		t.Fatalf("ValidateHints() expected font_size 1 to be valid, got %v", err)
+	}
+
+	// 0 is still below the floor for hints.ui.font_size.
+	cfg = config.DefaultConfig()
+	cfg.Hints.UI.FontSize = 0
+
+	err = cfg.ValidateHints()
+	if err == nil {
+		t.Fatal("ValidateHints() expected error for hints.ui.font_size of 0")
+	}
+
+	// hints.search_input_ui.font_size is validated independently.
+	cfg = config.DefaultConfig()
+	cfg.Hints.SearchInputUI.FontSize = 0
+
+	err = cfg.ValidateHints()
+	if err == nil {
+		t.Fatal("ValidateHints() expected error for hints.search_input_ui.font_size of 0")
+	}
+
+	// The upper bound of 72 is unchanged.
+	cfg = config.DefaultConfig()
+	cfg.Hints.UI.FontSize = 73
+
+	err = cfg.ValidateHints()
+	if err == nil {
+		t.Fatal("ValidateHints() expected error for hints.ui.font_size above 72")
+	}
+}
