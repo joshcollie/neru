@@ -65,6 +65,9 @@ func (o *winOverlay) DrawHints(
 	o.Clear()
 	o.window.SetColorBlendRGB(winplatform.ThemeSurfaceRGB())
 
+	o.lastHints = hintsSlice
+	o.lastHintStyle = style
+
 	for _, hint := range hintsSlice {
 		if hint == nil {
 			continue

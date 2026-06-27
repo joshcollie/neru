@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	gridcomponent "github.com/y3owk1n/neru/internal/app/components/grid"
+	hintscomponent "github.com/y3owk1n/neru/internal/app/components/hints"
 	domainGrid "github.com/y3owk1n/neru/internal/core/domain/grid"
 	winplatform "github.com/y3owk1n/neru/internal/core/infra/platform/windows"
 )
@@ -35,6 +36,9 @@ type winOverlay struct {
 	cachedGrid     *domainGrid.Grid
 	cachedStyle    gridcomponent.Style
 	suppressDraw   bool
+
+	lastHints     []*hintscomponent.Hint
+	lastHintStyle hintscomponent.StyleMode
 }
 
 func newWinOverlay(logger *zap.Logger) *winOverlay {
@@ -309,14 +313,17 @@ func (o *winOverlay) redrawGridWithoutFlush() {
 			continue
 		}
 
+		bg := style.BackgroundColor
 		text := style.LabelFontColor
-
 		border := style.LineColor
 		if matched && prefix != "" {
+			bg = style.MatchedBackgroundColor
 			text = style.MatchedTextColor
 			border = style.MatchedBorderColor
 		}
 
+		// Fill the cell background before drawing the border and label.
+		o.window.FillRect(cell.Bounds(), bg)
 		o.drawCellBorder(cell.Bounds(), border, style.LineWidth)
 
 		if style.ShowLabels {
@@ -397,6 +404,7 @@ func (o *winOverlay) drawSubgrid(bounds image.Rectangle, style gridcomponent.Sty
 				xBreaks[col+1],
 				yBreaks[row+1],
 			)
+			o.window.FillRect(cell, style.BackgroundColor)
 			o.drawCellBorder(cell, style.LineColor, style.LineWidth)
 			o.drawTextCentered(
 				string(keyRunes[index]),

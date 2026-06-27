@@ -9,6 +9,7 @@ package overlay
 
 import (
 	"image"
+	"strconv"
 	"strings"
 	"sync"
 	"unsafe"
@@ -20,8 +21,10 @@ import (
 	"github.com/y3owk1n/neru/internal/app/components/modeindicator"
 	"github.com/y3owk1n/neru/internal/app/components/recursivegrid"
 	"github.com/y3owk1n/neru/internal/app/components/stickyindicator"
+	"github.com/y3owk1n/neru/internal/config"
 	domainGrid "github.com/y3owk1n/neru/internal/core/domain/grid"
 	derrors "github.com/y3owk1n/neru/internal/core/errors"
+	winplatform "github.com/y3owk1n/neru/internal/core/infra/platform/windows"
 	"github.com/y3owk1n/neru/internal/core/ports"
 )
 
@@ -279,27 +282,259 @@ func (m *Manager) DrawHintsWithStyle(hintsSlice []*hints.Hint, style hints.Style
 	return nil
 }
 
-// DrawHintSearchInput is a no-op on Windows; the hint search box is not rendered.
+// DrawHintSearchInput renders the hints search input on the Windows overlay.
 func (m *Manager) DrawHintSearchInput(
-	_ string,
-	_ int,
-	_ hints.SearchInputFrame,
-	_ hints.SearchInputStyle,
+	query string,
+	resultCount int,
+	frame hints.SearchInputFrame,
+	style hints.SearchInputStyle,
 ) error {
+	m.renderMu.Lock()
+	defer m.renderMu.Unlock()
+
+	m.ensureWinOverlayLocked()
+
+	if m.win == nil {
+		return nil
+	}
+
+	m.win.Resize()
+
+	pos := frame.Position()
+	width := frame.Width()
+
+	fontSize := float64(max(style.FontSize(), 1))
+	paddingX := resolveWinAutoPadding(fontSize, style.PaddingX(), true)
+	paddingY := resolveWinAutoPadding(fontSize, style.PaddingY(), false)
+
+	// / query  count /  format
+	label := "/ " + query
+	if resultCount >= 0 {
+		label += "  " + strconv.Itoa(resultCount) + " /"
+	} else {
+		label += " /"
+	}
+
+	badgeWidth := estimateWinTextWidth(label, fontSize) + paddingX*winPaddingMultiplier
+	badgeHeight := estimateWinTextHeight(fontSize) + paddingY*winPaddingMultiplier
+	bounds := image.Rect(pos.X, pos.Y, pos.X+max(badgeWidth, width), pos.Y+badgeHeight)
+
+	m.win.window.SetColorBlendRGB(winplatform.ThemeSurfaceRGB())
+	m.win.drawFilledRect(
+		bounds,
+		parseHexColorARGB(style.BackgroundColor()),
+		parseHexColorARGB(style.BorderColor()),
+		float64(max(style.BorderWidth(), 0)),
+	)
+	m.win.drawTextCentered(
+		label,
+		bounds,
+		style.FontFamily(),
+		fontSize,
+		parseHexColorARGB(style.TextColor()),
+	)
+
 	return nil
 }
 
-// HideHintSearchInput is a no-op on Windows.
-func (m *Manager) HideHintSearchInput() {}
+// HideHintSearchInput redraws the hints overlay to clear the search input.
+func (m *Manager) HideHintSearchInput() {
+	m.renderMu.Lock()
+	defer m.renderMu.Unlock()
 
-// DrawModeIndicator is a no-op on Windows.
-func (m *Manager) DrawModeIndicator(_, _ int) {}
+	if m.win == nil {
+		return
+	}
 
-// DrawStickyModifiersIndicator is a no-op on Windows.
-func (m *Manager) DrawStickyModifiersIndicator(_, _ int, _ string) {}
+	if m.win.lastHints != nil {
+		m.win.Resize()
+		// DrawHints clears + redraws; using it erases the search overlay.
+		m.win.DrawHints(m.win.lastHints, m.win.lastHintStyle)
+	}
+}
 
-// DrawMouseActionIndicator is a no-op on Windows.
-func (m *Manager) DrawMouseActionIndicator(_ image.Point, _ ports.MouseActionIndicatorStyle) {}
+// DrawModeIndicator renders a mode indicator badge on the Windows overlay.
+func (m *Manager) DrawModeIndicator(x, y int) {
+	if m.modeIndicatorOverlay == nil {
+		return
+	}
+
+	mode := m.Mode()
+	if mode == ModeIdle {
+		return
+	}
+
+	cfg := m.modeIndicatorOverlay.IndicatorConfig()
+	label := modeIndicatorLabel(cfg, string(mode))
+	if label == "" {
+		return
+	}
+
+	m.renderMu.Lock()
+	defer m.renderMu.Unlock()
+
+	m.ensureWinOverlayLocked()
+
+	if m.win == nil {
+		return
+	}
+
+	offsetX := cfg.UI.IndicatorXOffset
+	offsetY := cfg.UI.IndicatorYOffset
+	fontSize := float64(max(cfg.UI.FontSize, 1))
+
+	paddingX := resolveWinAutoPadding(fontSize, cfg.UI.PaddingX, true)
+	paddingY := resolveWinAutoPadding(fontSize, cfg.UI.PaddingY, false)
+	badgeWidth := estimateWinTextWidth(label, fontSize) + paddingX*winPaddingMultiplier
+	badgeHeight := estimateWinTextHeight(fontSize) + paddingY*winPaddingMultiplier
+
+	bounds := image.Rect(
+		x+offsetX, y+offsetY,
+		x+offsetX+badgeWidth, y+offsetY+badgeHeight,
+	)
+
+	modeCfg := m.modeIndicatorOverlay.ModeConfig(string(mode))
+	bgColor := modeCfg.BackgroundColor.ForThemeWithOverride(
+		cfg.UI.BackgroundColor,
+		m.modeIndicatorOverlay.Theme(),
+		config.ModeIndicatorBackgroundColorLight,
+		config.ModeIndicatorBackgroundColorDark,
+	)
+	textColor := modeCfg.TextColor.ForThemeWithOverride(
+		cfg.UI.TextColor,
+		m.modeIndicatorOverlay.Theme(),
+		config.ModeIndicatorTextColorLight,
+		config.ModeIndicatorTextColorDark,
+	)
+	borderColor := modeCfg.BorderColor.ForThemeWithOverride(
+		cfg.UI.BorderColor,
+		m.modeIndicatorOverlay.Theme(),
+		config.ModeIndicatorBorderColorLight,
+		config.ModeIndicatorBorderColorDark,
+	)
+	borderWidth := cfg.UI.BorderWidth
+
+	m.win.window.SetColorBlendRGB(winplatform.ThemeSurfaceRGB())
+	m.win.drawFilledRect(
+		bounds,
+		parseHexColorARGB(bgColor),
+		parseHexColorARGB(borderColor),
+		float64(max(borderWidth, 0)),
+	)
+	m.win.drawTextCentered(
+		label,
+		bounds,
+		ports.ResolveFont(cfg.UI.FontFamily, true),
+		fontSize,
+		parseHexColorARGB(textColor),
+	)
+}
+
+// DrawStickyModifiersIndicator renders a sticky modifiers indicator badge on the Windows overlay.
+func (m *Manager) DrawStickyModifiersIndicator(x, y int, symbols string) {
+	if m.stickyModifiersOverlay == nil || symbols == "" {
+		return
+	}
+
+	ui := m.stickyModifiersOverlay.UI()
+	fontSize := float64(max(ui.FontSize, 1))
+
+	paddingX := resolveWinAutoPadding(fontSize, ui.PaddingX, true)
+	paddingY := resolveWinAutoPadding(fontSize, ui.PaddingY, false)
+	badgeWidth := estimateWinTextWidth(symbols, fontSize) + paddingX*winPaddingMultiplier
+	badgeHeight := estimateWinTextHeight(fontSize) + paddingY*winPaddingMultiplier
+
+	bounds := image.Rect(
+		x+ui.IndicatorXOffset, y+ui.IndicatorYOffset,
+		x+ui.IndicatorXOffset+badgeWidth, y+ui.IndicatorYOffset+badgeHeight,
+	)
+
+	m.renderMu.Lock()
+	defer m.renderMu.Unlock()
+
+	m.ensureWinOverlayLocked()
+
+	if m.win == nil {
+		return
+	}
+
+	bgColor := ui.BackgroundColor.ForTheme(
+		m.stickyModifiersOverlay.Theme(),
+		config.StickyModifiersBackgroundColorLight,
+		config.StickyModifiersBackgroundColorDark,
+	)
+	textColor := ui.TextColor.ForTheme(
+		m.stickyModifiersOverlay.Theme(),
+		config.StickyModifiersTextColorLight,
+		config.StickyModifiersTextColorDark,
+	)
+	borderColor := ui.BorderColor.ForTheme(
+		m.stickyModifiersOverlay.Theme(),
+		config.StickyModifiersBorderColorLight,
+		config.StickyModifiersBorderColorDark,
+	)
+
+	m.win.window.SetColorBlendRGB(winplatform.ThemeSurfaceRGB())
+	m.win.drawFilledRect(
+		bounds,
+		parseHexColorARGB(bgColor),
+		parseHexColorARGB(borderColor),
+		float64(max(ui.BorderWidth, 0)),
+	)
+	m.win.drawTextCentered(
+		symbols,
+		bounds,
+		ports.ResolveFont(ui.FontFamily, false),
+		fontSize,
+		parseHexColorARGB(textColor),
+	)
+}
+
+// DrawMouseActionIndicator renders a transient mouse action indicator on the Windows overlay.
+func (m *Manager) DrawMouseActionIndicator(
+	point image.Point,
+	style ports.MouseActionIndicatorStyle,
+) {
+	m.renderMu.Lock()
+	defer m.renderMu.Unlock()
+
+	m.ensureWinOverlayLocked()
+
+	if m.win == nil {
+		return
+	}
+
+	size := max(style.Size, 1)
+	half := size / 2
+	bounds := image.Rect(point.X-half, point.Y-half, point.X+half, point.Y+half)
+
+	bgColor := parseHexColorARGB(style.BackgroundColor)
+	borderColor := parseHexColorARGB(style.BorderColor)
+
+	m.win.window.SetColorBlendRGB(winplatform.ThemeSurfaceRGB())
+	m.win.drawFilledRect(
+		bounds,
+		bgColor,
+		borderColor,
+		float64(max(style.BorderWidth, 0)),
+	)
+}
+
+// modeIndicatorLabel returns the configured label for the given mode string.
+func modeIndicatorLabel(cfg config.ModeIndicatorConfig, mode string) string {
+	switch mode {
+	case "hints":
+		return cfg.Hints.Text
+	case "grid":
+		return cfg.Grid.Text
+	case "scroll":
+		return cfg.Scroll.Text
+	case "recursive_grid":
+		return cfg.RecursiveGrid.Text
+	default:
+		return ""
+	}
+}
 
 // DrawGrid draws the grid overlay.
 func (m *Manager) DrawGrid(gridValue *domainGrid.Grid, input string, style grid.Style) error {
