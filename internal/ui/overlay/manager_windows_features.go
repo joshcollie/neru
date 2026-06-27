@@ -14,6 +14,7 @@ import (
 
 	hintscomponent "github.com/y3owk1n/neru/internal/app/components/hints"
 	recursivegridcomponent "github.com/y3owk1n/neru/internal/app/components/recursivegrid"
+	"github.com/y3owk1n/neru/internal/core/ports"
 )
 
 const (
@@ -117,7 +118,7 @@ func (o *winOverlay) DrawHints(
 		o.drawTextCentered(
 			hint.Label(),
 			bounds,
-			style.FontFamily(),
+			ports.ResolveFont(style.FontFamily(), false),
 			fontSize,
 			parseHexColorARGB(textColor),
 		)
@@ -199,7 +200,7 @@ func (o *winOverlay) DrawRecursiveGrid(
 				o.drawTextCentered(
 					label,
 					cell,
-					style.LabelFontName,
+					ports.ResolveFont(style.LabelFontName, false),
 					style.LabelFontSize,
 					style.LabelFontColor,
 				)
@@ -286,7 +287,7 @@ func (o *winOverlay) drawRecursiveSubKeyPreview(
 	o.drawTextCentered(
 		label,
 		previewRect,
-		style.LabelFontName,
+		ports.ResolveFont(style.LabelFontName, false),
 		style.SubKeyPreviewFontSize,
 		style.SubKeyPreviewTextColor,
 	)

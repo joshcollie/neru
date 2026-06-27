@@ -17,6 +17,7 @@ import (
 	hintscomponent "github.com/y3owk1n/neru/internal/app/components/hints"
 	domainGrid "github.com/y3owk1n/neru/internal/core/domain/grid"
 	winplatform "github.com/y3owk1n/neru/internal/core/infra/platform/windows"
+	"github.com/y3owk1n/neru/internal/core/ports"
 )
 
 const (
@@ -324,7 +325,7 @@ func (o *winOverlay) redrawGridWithoutFlush() {
 		o.drawCellBorder(cell.Bounds(), border, style.LineWidth)
 
 		if style.ShowLabels {
-			o.drawTextCentered(label, cell.Bounds(), style.LabelFontName, style.LabelFontSize, text)
+			o.drawTextCentered(label, cell.Bounds(), ports.ResolveFont(style.LabelFontName, false), style.LabelFontSize, text)
 		}
 	}
 
@@ -405,7 +406,7 @@ func (o *winOverlay) drawSubgrid(bounds image.Rectangle, style gridcomponent.Sty
 			o.drawTextCentered(
 				string(keyRunes[index]),
 				cell,
-				style.LabelFontName,
+				ports.ResolveFont(style.LabelFontName, false),
 				style.LabelFontSize*winSubgridFontScale,
 				style.LabelFontColor,
 			)

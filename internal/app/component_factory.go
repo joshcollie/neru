@@ -305,7 +305,7 @@ func (f *ComponentFactory) createOverlay(overlayType string, cfg any) (any, erro
 		// When no real overlay window exists (e.g. in tests with a no-op overlay
 		// manager), return nil rather than creating an overlay with a nil C window
 		// handle, which would crash on any CGo call.
-		if f.overlayManager.WindowPtr() == nil {
+		if f.headless() {
 			return nil, nil //nolint:nilnil
 		}
 
@@ -316,7 +316,7 @@ func (f *ComponentFactory) createOverlay(overlayType string, cfg any) (any, erro
 			return nil, derrors.New(derrors.CodeInvalidInput, "invalid grid config type")
 		}
 
-		if f.overlayManager.WindowPtr() == nil {
+		if f.headless() {
 			return nil, nil //nolint:nilnil
 		}
 
@@ -325,14 +325,6 @@ func (f *ComponentFactory) createOverlay(overlayType string, cfg any) (any, erro
 		indicatorConfig, ok := cfg.(config.ModeIndicatorConfig)
 		if !ok {
 			return nil, derrors.New(derrors.CodeInvalidInput, "invalid mode indicator config type")
-		}
-
-		// Mode indicator creates its own dedicated window (not the shared manager
-		// window) so it doesn't conflict with hints/grid content. The nil-window
-		// check here serves as a proxy for detecting headless/test environments
-		// where no native windows should be created at all.
-		if f.overlayManager.WindowPtr() == nil {
-			return nil, nil //nolint:nilnil
 		}
 
 		return modeindicator.NewOverlay(
@@ -346,7 +338,7 @@ func (f *ComponentFactory) createOverlay(overlayType string, cfg any) (any, erro
 			return nil, derrors.New(derrors.CodeInvalidInput, "invalid recursive_grid config type")
 		}
 
-		if f.overlayManager.WindowPtr() == nil {
+		if f.headless() {
 			return nil, nil //nolint:nilnil
 		}
 
@@ -362,10 +354,6 @@ func (f *ComponentFactory) createOverlay(overlayType string, cfg any) (any, erro
 				derrors.CodeInvalidInput,
 				"invalid sticky modifiers config type",
 			)
-		}
-
-		if f.overlayManager.WindowPtr() == nil {
-			return nil, nil //nolint:nilnil
 		}
 
 		return stickyindicator.NewOverlay(
