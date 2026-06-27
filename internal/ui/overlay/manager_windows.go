@@ -428,6 +428,11 @@ func (m *Manager) DrawModeIndicator(x, y int) {
 		fontSize,
 		parseHexColorARGB(textColor),
 	)
+
+	// Ensure the overlay is visible (especially for modes like scroll that
+	// do not call Show themselves). Show() flushes the buffer, so we call it
+	// after drawing so content is visible immediately.
+	m.win.Show()
 }
 
 // DrawStickyModifiersIndicator renders a sticky modifiers indicator badge on the Windows overlay.
@@ -457,6 +462,9 @@ func (m *Manager) DrawStickyModifiersIndicator(x, y int, symbols string) {
 	if m.win == nil {
 		return
 	}
+
+	// Ensure the overlay is visible before drawing on it.
+	m.win.Show()
 
 	bgColor := ui.BackgroundColor.ForTheme(
 		m.stickyModifiersOverlay.Theme(),
@@ -488,6 +496,11 @@ func (m *Manager) DrawStickyModifiersIndicator(x, y int, symbols string) {
 		fontSize,
 		parseHexColorARGB(textColor),
 	)
+
+	// Ensure the overlay is visible (especially for modes like scroll that
+	// do not call Show themselves). Show() flushes the buffer, so we call it
+	// after drawing so content is visible immediately.
+	m.win.Show()
 }
 
 // DrawMouseActionIndicator renders a transient mouse action indicator on the Windows overlay.

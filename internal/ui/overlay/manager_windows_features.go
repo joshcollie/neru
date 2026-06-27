@@ -185,11 +185,8 @@ func (o *winOverlay) DrawRecursiveGrid(
 				cell.Max.Y = bounds.Max.Y
 			}
 
-			// Stroke the cell border only; leave the interior transparent (the
-			// layered color-key) so the content being navigated to stays visible.
-			// The Windows overlay has no real alpha, so any interior fill blends
-			// to an opaque tint that hides what is underneath. Grid mode draws
-			// borders + labels for the same reason; recursive-grid matches it.
+			o.window.FillRect(cell, style.HighlightColor)
+
 			if style.LineWidth > 0 {
 				o.window.StrokeRect(cell, style.LineColor, style.LineWidth)
 			}

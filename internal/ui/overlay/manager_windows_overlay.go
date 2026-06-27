@@ -322,7 +322,6 @@ func (o *winOverlay) redrawGridWithoutFlush() {
 			border = style.MatchedBorderColor
 		}
 
-		// Fill the cell background before drawing the border and label.
 		o.window.FillRect(cell.Bounds(), bg)
 		o.drawCellBorder(cell.Bounds(), border, style.LineWidth)
 
