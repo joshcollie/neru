@@ -144,8 +144,8 @@ func (c *Config) ValidateHints() error {
 		return err
 	}
 
-	if c.Hints.UI.FontSize < 6 || c.Hints.UI.FontSize > 72 {
-		return derrors.New(derrors.CodeInvalidConfig, "hints.ui.font_size must be between 6 and 72")
+	if c.Hints.UI.FontSize < 1 || c.Hints.UI.FontSize > 72 {
+		return derrors.New(derrors.CodeInvalidConfig, "hints.ui.font_size must be between 1 and 72")
 	}
 
 	err = validateMinValue(c.Hints.UI.BorderRadius, -1, "hints.ui.border_radius")
@@ -178,10 +178,10 @@ func (c *Config) ValidateHints() error {
 		)
 	}
 
-	if c.Hints.SearchInputUI.FontSize < 6 || c.Hints.SearchInputUI.FontSize > 72 {
+	if c.Hints.SearchInputUI.FontSize < 1 || c.Hints.SearchInputUI.FontSize > 72 {
 		return derrors.New(
 			derrors.CodeInvalidConfig,
-			"hints.search_input_ui.font_size must be between 6 and 72",
+			"hints.search_input_ui.font_size must be between 1 and 72",
 		)
 	}
 
@@ -709,8 +709,8 @@ func (c *Config) ValidateGrid() error {
 		return err
 	}
 
-	if c.Grid.UI.FontSize < 6 || c.Grid.UI.FontSize > 72 {
-		return derrors.New(derrors.CodeInvalidConfig, "grid.ui.font_size must be between 6 and 72")
+	if c.Grid.UI.FontSize < 1 || c.Grid.UI.FontSize > 72 {
+		return derrors.New(derrors.CodeInvalidConfig, "grid.ui.font_size must be between 1 and 72")
 	}
 
 	if c.Grid.UI.BorderWidth < 0 {
