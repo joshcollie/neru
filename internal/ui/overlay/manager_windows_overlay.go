@@ -138,6 +138,23 @@ func (o *winOverlay) Clear() {
 	}
 }
 
+// ClearCache invalidates cached grid and hints state so that a subsequent
+// Show() does not redraw stale content from a previous mode. This must be
+// called when modes exit to prevent ghost artifacts (e.g. the old grid
+// reappearing when a mode indicator is drawn).
+func (o *winOverlay) ClearCache() {
+	if o == nil {
+		return
+	}
+
+	o.cachedGrid = nil
+	o.cachedStyle = gridcomponent.Style{}
+	o.currentPrefix = ""
+	o.currentSubgrid = nil
+	o.lastHints = nil
+	o.lastHintStyle = hintscomponent.StyleMode{}
+}
+
 func (o *winOverlay) Resize() {
 	if o == nil || o.window == nil {
 		return

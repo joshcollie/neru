@@ -115,6 +115,18 @@ func (m *Manager) Clear() {
 	}
 }
 
+// ClearCache invalidates cached grid and hints state on the Windows overlay
+// so that a subsequent Show() does not redraw stale content from a previous
+// mode. Called during mode cleanup to prevent ghost artifacts.
+func (m *Manager) ClearCache() {
+	m.renderMu.Lock()
+	defer m.renderMu.Unlock()
+
+	if m.win != nil {
+		m.win.ClearCache()
+	}
+}
+
 // ResizeToActiveScreen resizes the overlay to the active monitor.
 func (m *Manager) ResizeToActiveScreen() {
 	m.renderMu.Lock()
