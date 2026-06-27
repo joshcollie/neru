@@ -72,6 +72,8 @@ var configDumpCmd = &cobra.Command{
 	},
 }
 
+const defaultReloadTimeoutSeconds = 30
+
 var configReloadCmd = &cobra.Command{
 	Use:   "reload",
 	Short: "Reload configuration from disk",
@@ -80,6 +82,9 @@ var configReloadCmd = &cobra.Command{
 		return requiresRunningInstance()
 	},
 	RunE: func(cmd *cobra.Command, _ []string) error {
+		if !cmd.Root().PersistentFlags().Changed("timeout") {
+			timeoutSec = defaultReloadTimeoutSeconds
+		}
 		return sendCommand(cmd, domain.CommandReloadConfig, []string{})
 	},
 }
