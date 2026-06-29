@@ -681,7 +681,8 @@ int neru_wayland_overlay_poll(NeruWaylandOverlay *overlay) {
 
 	int ret = poll(&pfd, 1, 0);
 	if (ret > 0 && (pfd.revents & POLLIN)) {
-		wl_display_read_events(display);
+		if (wl_display_read_events(display) < 0)
+			ret = -1;
 	} else {
 		wl_display_cancel_read(display);
 		if (ret > 0)
