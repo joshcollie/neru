@@ -684,6 +684,8 @@ int neru_wayland_overlay_poll(NeruWaylandOverlay *overlay) {
 		wl_display_read_events(display);
 	} else {
 		wl_display_cancel_read(display);
+		if (ret > 0)
+			ret = -1;
 	}
 
 	wl_display_dispatch_pending(display);
